@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+
+<title>Vẽ Hình Đoán Chữ</title>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f3f4f6;
+    color: #111827;
+}
+
+body {
+    padding-bottom: 30px;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0,0,0,.72);
+}
+
+.modal {
+    width: min(420px,100%);
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    text-align: center;
+}
+
+.modal h1 {
+    margin: 0 0 10px;
+    font-size: 28px;
+}
+
+.modal p {
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.name-input {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    outline: none;
+    margin: 12px 0;
+}
+
+.primary {
+    width: 100%;
+    border: 0;
+    border-radius: 12px;
+    padding: 14px;
+    background: #22c55e;
+    color: white;
+    font-weight: bold;
+}
+
+.primary:active {
+    transform: scale(.98);
+}
+
+.hidden {
+    display: none !important;
+}
+
+.top {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 14px;
+}
+
+.top-inner {
+    max-width: 1100px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.title {
+    font-weight: 800;
+}
+
+.stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.badge {
+    padding: 7px 10px;
+    background: #f3f4f6;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.timer {
+    color: #dc2626;
+}
+
+.main {
+    max-width: 1100px;
+    margin: auto;
+    padding: 14px;
+}
+
+.game-grid {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 300px;
+    gap: 14px;
+}
+
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+
+.canvas-wrap {
+    position: relative;
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 0.72;
+    touch-action: none;
+    background: white;
+}
+
+.wordbar {
+    text-align: center;
+    min-height: 44px;
+    padding: 10px;
+    font-weight: bold;
+}
+
+.category {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.tools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
+}
+
+.tool {
+    border: 1px solid #d1d5db;
+    background: white;
+    border-radius: 9px;
+    padding: 8px 10px;
+}
+
+.tool.active {
+    border-color: #22c55e;
+    background: #dcfce7;
+}
+
+.colors {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.color {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px #d1d5db;
+}
+
+.size {
+    width: 90px;
+}
+
+.guess-box {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.answer {
+    border: 1px solid #d1d5db;
+    background: white;
+    border-radius: 11px;
+    padding: 12px;
+    font-weight: bold;
+}
+
+.answer:active {
+    transform: scale(.98);
+}
+
+.answer:disabled {
+    opacity: .45;
+}
+
+.players h3 {
+    margin-top: 0;
+}
+
+.player {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: #f9fafb;
+}
+
+.player.drawer {
+    background: #dcfce7;
+}
+
+.player-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.score {
+    font-weight: bold;
+}
+
+.wait {
+    text-align: center;
+    padding: 12px;
+    color: #6b7280;
+}
+
+#toast {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    z-index: 3000;
+    transform: translateX(-50%);
+    max-width: calc(100% - 30px);
+    padding: 12px 16px;
+    background: #111827;
+    color: white;
+    border-radius: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: .2s;
+}
+
+#toast.show {
+    opacity: 1;
+}
+
+.toast-success {
+    background: #16a34a !important;
+}
+
+.toast-error {
+    background: #dc2626 !important;
+}
+
+.choose-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.choose {
+    border: 1px solid #d1d5db;
+    background: white;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: left;
+}
+
+.choose strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.scoreboard-list {
+    margin-top: 15px;
+}
+
+.score-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+@media (max-width: 750px) {
+    .game-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .players {
+        order: 2;
+    }
+
+    #canvas {
+        aspect-ratio: 1 / .8;
+    }
+}
+
+body.dark { background:#0b1020; color:#eef2ff; }
+body.dark .top, body.dark .card, body.dark .modal { background:#111827; color:#eef2ff; border-color:#263247; }
+body.dark .badge, body.dark .wait, body.dark .name-input, body.dark .chat-input { background:#1b2538; color:#eef2ff; border-color:#34435e; }
+body.dark .canvas-wrap { border-color:#34435e; }
+body.dark .category, body.dark .modal p { color:#aab6cc; }
+.theme-btn { border:0; border-radius:12px; padding:8px 11px; background:#eef2ff; color:#111827; font-weight:800; }
+body.dark .theme-btn { background:#263247; color:#fff; }
+.auth-tabs { display:flex; gap:8px; margin:14px 0; }
+.auth-tab { flex:1; border:0; border-radius:11px; padding:11px; background:#eef2ff; font-weight:800; }
+.auth-tab.active { background:#22c55e; color:white; }
+.auth-note { font-size:12px; opacity:.7; margin-top:10px; }
+.user-pill { padding:7px 10px; border-radius:10px; background:#dcfce7; color:#166534; font-weight:800; font-size:13px; }
+body.dark .user-pill { background:#123b2a; color:#86efac; }
+.chat-panel { margin-top:14px; }
+.chat-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-weight:900; }
+.chat-row { display:flex; gap:8px; }
+.chat-input { flex:1; min-width:0; border:1px solid #d1d5db; border-radius:12px; padding:11px 12px; outline:none; }
+.chat-send { border:0; border-radius:12px; padding:0 15px; background:#22c55e; color:#fff; font-weight:900; }
+.danmaku { position:fixed; inset:0; pointer-events:none; z-index:60; overflow:hidden; }
+.danmaku-item { position:absolute; left:-35%; white-space:nowrap; padding:7px 13px; border-radius:999px; background:rgba(17,24,39,.82); color:#fff; font-weight:800; box-shadow:0 5px 20px rgba(0,0,0,.2); animation:flyChat linear forwards; }
+body.dark .danmaku-item { background:rgba(255,255,255,.13); backdrop-filter:blur(7px); }
+@keyframes flyChat { from { transform:translateX(0); } to { transform:translateX(155vw); } }
+</style>
+</head>
+
+<body>
+
+<div id="joinOverlay" class="overlay">
+    <div class="modal">
+        <h1>🎨 Vẽ Hình Đoán Chữ</h1>
+        <p id="authTitle">Đăng nhập để vào phòng chơi.</p>
+        <div class="auth-tabs">
+            <button id="loginTab" class="auth-tab active">Đăng nhập</button>
+            <button id="registerTab" class="auth-tab">Đăng ký</button>
+        </div>
+        <input id="nameInput" class="name-input" placeholder="Tên tài khoản" autocomplete="username">
+        <input id="passwordInput" class="name-input" type="password" placeholder="Mật khẩu" autocomplete="current-password">
+        <button id="joinBtn" class="primary">🚀 ĐĂNG NHẬP</button>
+        <div class="auth-note">Tài khoản và điểm được lưu trên server trong people.json.</div>
+    </div>
+</div>
+
+<div id="chooseOverlay" class="overlay hidden">
+    <div class="modal">
+        <h1>✏️ Chọn từ</h1>
+        <p>
+            Chọn một từ để mọi người đoán.
+            <br>
+            Còn <b id="chooseTime">15</b> giây
+        </p>
+
+        <div id="chooseList" class="choose-list"></div>
+    </div>
+</div>
+
+<div id="scoreOverlay" class="overlay hidden">
+    <div class="modal">
+        <h1>🏆 Kết quả</h1>
+
+        <p>
+            Đáp án:
+            <b id="revealedWord"></b>
+        </p>
+
+        <div id="scoreboardList"
+             class="scoreboard-list"></div>
+    </div>
+</div>
+
+<header class="top">
+    <div class="top-inner">
+        <div class="title">🎨 Vẽ Hình Đoán Chữ</div>
+
+        <div class="stats">
+            <div id="userPill" class="user-pill hidden">@...</div>
+            <button id="themeBtn" class="theme-btn" title="Đổi giao diện">☀️</button>
+            <div class="badge">
+                👥 <span id="playerCount">0</span>
+            </div>
+
+            <div class="badge">
+                🔄 Vòng <span id="round">0</span>
+            </div>
+
+            <div class="badge timer">
+                ⏱ <span id="timer">--</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="main">
+
+    <div class="game-grid">
+
+        <section class="card">
+
+            <div class="wordbar">
+                <div id="wordText">
+                    Đang chờ người chơi...
+                </div>
+
+                <div id="categoryText"
+                     class="category"></div>
+            </div>
+
+            <div class="canvas-wrap">
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <div id="tools" class="tools">
+
+                <div class="colors">
+                    <button class="color"
+                            data-color="#111827"
+                            style="background:#111827"></button>
+
+                    <button class="color"
+                            data-color="#ef4444"
+                            style="background:#ef4444"></button>
+
+                    <button class="color"
+                            data-color="#22c55e"
+                            style="background:#22c55e"></button>
+
+                    <button class="color"
+                            data-color="#3b82f6"
+                            style="background:#3b82f6"></button>
+
+                    <button class="color"
+                            data-color="#eab308"
+                            style="background:#eab308"></button>
+
+                    <button class="color"
+                            data-color="#a855f7"
+                            style="background:#a855f7"></button>
+                </div>
+
+                <input
+                    id="size"
+                    class="size"
+                    type="range"
+                    min="1"
+                    max="40"
+                    value="5">
+
+                <button id="eraser"
+                        class="tool">
+                    🧹 Tẩy
+                </button>
+
+                <button id="undo"
+                        class="tool">
+                    ↩️ Hoàn tác
+                </button>
+
+                <button id="clear"
+                        class="tool">
+                    🗑️ Xóa
+                </button>
+
+                <button id="imageBtn"
+                        class="tool">
+                    🖼️ Ảnh
+                </button>
+
+                <input
+                    id="imageInput"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    class="hidden">
+            </div>
+
+            <div id="guessArea"
+                 class="guess-box"></div>
+
+            <div id="waitMessage"
+                 class="wait">
+                Đang chờ...
+            </div>
+
+        </section>
+
+        <aside class="card players">
+            <h3>👥 Người chơi</h3>
+            <div id="players"></div>
+        </aside>
+
+    </div>
+
+</main>
+
+<div class="card chat-panel" style="max-width:1100px;margin:14px auto;">
+    <div class="chat-title"><span>💬 Chat phòng</span><span style="opacity:.55;font-size:12px">Tin nhắn sẽ bay ngang màn hình</span></div>
+    <div class="chat-row">
+        <input id="chatInput" class="chat-input" maxlength="120" placeholder="Nhập tin nhắn...">
+        <button id="chatSend" class="chat-send">GỬI</button>
+    </div>
+</div>
+<div id="danmaku" class="danmaku"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+const socket = io();
+
+const joinOverlay = document.getElementById("joinOverlay");
+const chooseOverlay = document.getElementById("chooseOverlay");
+const scoreOverlay = document.getElementById("scoreOverlay");
+
+const nameInput = document.getElementById("nameInput");
+const passwordInput = document.getElementById("passwordInput");
+const loginTab = document.getElementById("loginTab");
+const registerTab = document.getElementById("registerTab");
+const authTitle = document.getElementById("authTitle");
+const userPill = document.getElementById("userPill");
+const themeBtn = document.getElementById("themeBtn");
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+const danmaku = document.getElementById("danmaku");
+let authMode = "login";
+let authUsername = "";
+
+const savedTheme = localStorage.getItem("vh-theme");
+if (savedTheme === "dark") { document.body.classList.add("dark"); themeBtn.textContent = "🌙"; }
+themeBtn.addEventListener("click", () => {
+    document.body.classList.toggle("dark");
+    const dark = document.body.classList.contains("dark");
+    localStorage.setItem("vh-theme", dark ? "dark" : "light");
+    themeBtn.textContent = dark ? "🌙" : "☀️";
+});
+
+loginTab.addEventListener("click", () => setAuthMode("login"));
+registerTab.addEventListener("click", () => setAuthMode("register"));
+function setAuthMode(mode) {
+    authMode = mode;
+    const login = mode === "login";
+    loginTab.classList.toggle("active", login); registerTab.classList.toggle("active", !login);
+    joinBtn.textContent = login ? "🚀 ĐĂNG NHẬP" : "✨ TẠO TÀI KHOẢN";
+    authTitle.textContent = login ? "Đăng nhập để vào phòng chơi." : "Tạo tài khoản mới để lưu điểm.";
+    passwordInput.autocomplete = login ? "current-password" : "new-password";
+}
+
+chatSend.addEventListener("click", sendChat);
+chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+function sendChat() { const text = chatInput.value.trim(); if (!text) return; if (!authUsername) return showToast("Đăng nhập trước.", "error"); socket.emit("chat", text); chatInput.value = ""; }
+function flyChat(data) {
+    const el = document.createElement("div"); el.className="danmaku-item";
+    el.textContent = `💬 ${data.name}: ${data.message}`;
+    const lane = 8 + Math.floor(Math.random()*72); el.style.top = lane+"%";
+    const duration = 7 + Math.random()*4; el.style.animationDuration = duration+"s";
+    danmaku.appendChild(el); setTimeout(()=>el.remove(), (duration+0.5)*1000);
+}
+const joinBtn = document.getElementById("joinBtn");
+
+const chooseList = document.getElementById("chooseList");
+const chooseTime = document.getElementById("chooseTime");
+
+const scoreboardList =
+    document.getElementById("scoreboardList");
+
+const revealedWord =
+    document.getElementById("revealedWord");
+
+const playerCount =
+    document.getElementById("playerCount");
+
+const roundText =
+    document.getElementById("round");
+
+const timer =
+    document.getElementById("timer");
+
+const wordText =
+    document.getElementById("wordText");
+
+const categoryText =
+    document.getElementById("categoryText");
+
+const guessArea =
+    document.getElementById("guessArea");
+
+const waitMessage =
+    document.getElementById("waitMessage");
+
+const playersEl =
+    document.getElementById("players");
+
+const canvas =
+    document.getElementById("canvas");
+
+const ctx =
+    canvas.getContext("2d");
+
+const sizeInput =
+    document.getElementById("size");
+
+const eraserBtn =
+    document.getElementById("eraser");
+
+const clearBtn =
+    document.getElementById("clear");
+
+const undoBtn =
+    document.getElementById("undo");
+
+const imageBtn =
+    document.getElementById("imageBtn");
+
+const imageInput =
+    document.getElementById("imageInput");
+
+let myId = null;
+let myName = "";
+
+let isDrawer = false;
+let drawing = false;
+
+let currentColor = "#111827";
+let currentSize = 5;
+let eraser = false;
+
+let strokes = [];
+let images = [];
+
+let lastX = 0;
+let lastY = 0;
+
+let guessLocked = false;
+
+function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+
+    const old = document.createElement("canvas");
+    old.width = canvas.width;
+    old.height = canvas.height;
+
+    if (canvas.width && canvas.height) {
+        old.getContext("2d").drawImage(canvas, 0, 0);
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+
+    ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+    );
+
+    redraw();
+}
+
+function canvasPoint(e) {
+    const rect = canvas.getBoundingClientRect();
+
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
+}
+
+function startDraw(e) {
+    if (!isDrawer) return;
+
+    drawing = true;
+
+    const p = canvasPoint(e);
+
+    lastX = p.x;
+    lastY = p.y;
+
+    e.preventDefault();
+}
+
+function moveDraw(e) {
+    if (!drawing || !isDrawer) return;
+
+    const p = canvasPoint(e);
+
+    drawLocal(
+        lastX,
+        lastY,
+        p.x,
+        p.y,
+        currentColor,
+        currentSize,
+        eraser
+    );
+
+    socket.emit("drawLine", {
+        x0: lastX,
+        y0: lastY,
+        x1: p.x,
+        y1: p.y,
+        color: currentColor,
+        size: currentSize,
+        erase: eraser
+    });
+
+    strokes.push({
+        x0: lastX,
+        y0: lastY,
+        x1: p.x,
+        y1: p.y,
+        color: currentColor,
+        size: currentSize,
+        erase: eraser
+    });
+
+    lastX = p.x;
+    lastY = p.y;
+
+    e.preventDefault();
+}
+
+function endDraw() {
+    drawing = false;
+}
+
+function drawLocal(
+    x0,
+    y0,
+    x1,
+    y1,
+    color,
+    size,
+    erase
+) {
+    ctx.save();
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = size;
+
+    ctx.strokeStyle = color;
+
+    if (erase) {
+        ctx.globalCompositeOperation =
+            "destination-out";
+    } else {
+        ctx.globalCompositeOperation =
+            "source-over";
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function redraw() {
+    const rect = canvas.getBoundingClientRect();
+
+    ctx.clearRect(
+        0,
+        0,
+        rect.width,
+        rect.height
+    );
+
+    for (const s of strokes) {
+        drawLocal(
+            s.x0,
+            s.y0,
+            s.x1,
+            s.y1,
+            s.color,
+            s.size,
+            s.erase
+        );
+    }
+
+    for (const image of images) {
+        drawImageObject(image);
+    }
+}
+
+function drawImageObject(image) {
+    const img = new Image();
+
+    img.onload = () => {
+        ctx.drawImage(
+            img,
+            image.x,
+            image.y,
+            image.width,
+            image.height
+        );
+    };
+
+    img.src = image.src;
+}
+
+function clearLocal() {
+    strokes = [];
+    images = [];
+    redraw();
+}
+
+canvas.addEventListener(
+    "pointerdown",
+    startDraw
+);
+
+canvas.addEventListener(
+    "pointermove",
+    moveDraw
+);
+
+canvas.addEventListener(
+    "pointerup",
+    endDraw
+);
+
+canvas.addEventListener(
+    "pointercancel",
+    endDraw
+);
+
+canvas.addEventListener(
+    "pointerleave",
+    endDraw
+);
+
+window.addEventListener(
+    "resize",
+    resizeCanvas
+);
+
+document.querySelectorAll(".color")
+    .forEach(btn => {
+        btn.addEventListener("click", () => {
+            currentColor =
+                btn.dataset.color;
+
+            eraser = false;
+
+            eraserBtn.classList.remove(
+                "active"
+            );
+        });
+    });
+
+sizeInput.addEventListener(
+    "input",
+    () => {
+        currentSize =
+            Number(sizeInput.value);
+    }
+);
+
+eraserBtn.addEventListener(
+    "click",
+    () => {
+        eraser = !eraser;
+
+        eraserBtn.classList.toggle(
+            "active",
+            eraser
+        );
+    }
+);
+
+clearBtn.addEventListener(
+    "click",
+    () => {
+        if (!isDrawer) return;
+
+        strokes = [];
+        images = [];
+
+        redraw();
+
+        socket.emit("clearCanvas");
+        socket.emit("removeAllImages");
+    }
+);
+
+undoBtn.addEventListener(
+    "click",
+    () => {
+        if (!isDrawer) return;
+
+        if (!strokes.length) return;
+
+        strokes.pop();
+
+        redraw();
+
+        /*
+         * Gửi clear để người khác xóa canvas.
+         * Sau đó các nét còn lại được gửi lại.
+         */
+        socket.emit("clearCanvas");
+
+        for (const s of strokes) {
+            socket.emit("drawLine", s);
+        }
+    }
+);
+
+imageBtn.addEventListener(
+    "click",
+    () => {
+        if (!isDrawer) return;
+
+        imageInput.click();
+    }
+);
+
+imageInput.addEventListener(
+    "change",
+    () => {
+        const file = imageInput.files[0];
+
+        if (!file) return;
+
+        if (file.size > 4 * 1024 * 1024) {
+            showToast(
+                "Ảnh quá lớn. Tối đa 4 MB.",
+                "error"
+            );
+
+            imageInput.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const img = new Image();
+
+            img.onload = () => {
+                const rect =
+                    canvas.getBoundingClientRect();
+
+                const maxWidth =
+                    rect.width * .65;
+
+                const maxHeight =
+                    rect.height * .65;
+
+                let width = img.width;
+                let height = img.height;
+
+                const scale =
+                    Math.min(
+                        1,
+                        maxWidth / width,
+                        maxHeight / height
+                    );
+
+                width *= scale;
+                height *= scale;
+
+                const image = {
+                    id:
+                        Date.now() +
+                        "-" +
+                        Math.random(),
+
+                    src: reader.result,
+
+                    x:
+                        (rect.width - width) / 2,
+
+                    y:
+                        (rect.height - height) / 2,
+
+                    width,
+                    height
+                };
+
+                images.push(image);
+
+                redraw();
+
+                socket.emit(
+                    "importImage",
+                    image
+                );
+            };
+            
+            img.src = reader.result;
+        };
+
+        reader.readAsDataURL(file);
+
+        imageInput.value = "";
+    }
+);
+
+joinBtn.addEventListener(
+    "click",
+    joinGame
+);
+
+nameInput.addEventListener(
+    "keydown",
+    e => {
+        if (e.key === "Enter") {
+            joinGame();
+        }
+    }
+);
+
+function joinGame() {
+    const username = nameInput.value.trim();
+    const password = passwordInput.value;
+    if (!username || !password) return showToast("Nhập đủ tài khoản và mật khẩu.", "error");
+    socket.emit(authMode === "login" ? "login" : "register", { username, password });
+}
+
+function showChoose(options) {
+    chooseOverlay.classList.remove(
+        "hidden"
+    );
+
+    chooseList.innerHTML = "";
+
+    for (const option of options) {
+        const button =
+            document.createElement("button");
+
+        button.className = "choose";
+
+        button.innerHTML =
+            `<strong>${escapeHtml(option.word)}</strong>
+             <span>${escapeHtml(option.category)}</span>`;
+
+        button.addEventListener(
+            "click",
+            () => {
+                chooseOverlay.classList.add(
+                    "hidden"
+                );
+
+                socket.emit(
+                    "wordChosen",
+                    option
+                );
+            }
+        );
+
+        chooseList.appendChild(button);
+    }
+}
+
+function showGuessOptions(options) {
+    guessArea.innerHTML = "";
+
+    guessLocked = false;
+
+    for (const answer of options) {
+        const button =
+            document.createElement("button");
+
+        button.className = "answer";
+
+        button.textContent = answer;
+
+        button.addEventListener(
+            "click",
+            () => {
+                if (guessLocked) return;
+
+                guessLocked = true;
+
+                socket.emit(
+                    "guess",
+                    answer
+                );
+
+                setTimeout(() => {
+                    guessLocked = false;
+                }, 3000);
+            }
+        );
+
+        guessArea.appendChild(button);
+    }
+}
+
+function renderPlayers(list) {
+    playersEl.innerHTML = "";
+
+    playerCount.textContent =
+        list.length;
+
+    for (const player of list) {
+        const row =
+            document.createElement("div");
+
+        row.className =
+            "player" +
+            (player.drawer
+                ? " drawer"
+                : "");
+
+        const left =
+            document.createElement("div");
+
+        left.className =
+            "player-name";
+
+        left.textContent =
+            (player.drawer ? "✏️ " : "") +
+            player.name;
+
+        const right =
+            document.createElement("div");
+
+        right.className = "score";
+
+        right.textContent =
+            player.score;
+
+        row.appendChild(left);
+        row.appendChild(right);
+
+        playersEl.appendChild(row);
+    }
+}
+
+function showToast(
+    message,
+    type = "normal"
+) {
+    const toast =
+        document.getElementById("toast");
+
+    toast.textContent = message;
+
+    toast.className = "";
+
+    toast.id = "toast";
+
+    if (type === "success") {
+        toast.classList.add(
+            "toast-success"
+        );
+    }
+
+    if (type === "error") {
+        toast.classList.add(
+            "toast-error"
+        );
+    }
+
+    requestAnimationFrame(() => {
+        toast.classList.add("show");
+    });
+
+    clearTimeout(
+        showToast.timer
+    );
+
+    showToast.timer =
+        setTimeout(() => {
+            toast.classList.remove(
+                "show"
+            );
+        }, 2500);
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function showScoreboard(list, word) {
+    revealedWord.textContent = word;
+
+    scoreboardList.innerHTML = "";
+
+    const sorted = [...list]
+        .sort((a, b) => b.score - a.score);
+
+    sorted.forEach((player, index) => {
+        const row =
+            document.createElement("div");
+
+        row.className = "score-row";
+
+        row.innerHTML =
+            `<span>
+                ${index + 1}. ${escapeHtml(player.name)}
+             </span>
+             <b>${player.score}</b>`;
+
+        scoreboardList.appendChild(row);
+    });
+
+    scoreOverlay.classList.remove(
+        "hidden"
+    );
+
+    setTimeout(() => {
+        scoreOverlay.classList.add(
+            "hidden"
+        );
+    }, 3800);
+}
+
+/* =========================
+   SOCKET.IO
+========================= */
+
+socket.on("authOk", data => {
+    authUsername = data.username; myName = data.username;
+    userPill.textContent = "👤 " + data.username; userPill.classList.remove("hidden");
+    joinOverlay.classList.add("hidden");
+    passwordInput.value = "";
+    socket.emit("changeName", data.username);
+});
+
+socket.on("authError", data => showToast(data.message || "Không thể đăng nhập.", "error"));
+socket.on("chatMessage", data => flyChat(data));
+socket.on("systemMessage", data => { showToast(data.message, "success"); flyChat({name:"Hệ thống", message:data.message.replace(/^👋 /, "")}); });
+
+socket.on("connect", () => {
+    myId = socket.id;
+
+    console.log(
+        "Socket connected:",
+        socket.id
+    );
+});
+
+socket.on("welcome", data => {
+    myId = data.id;
+});
+
+socket.on(
+    "playerList",
+    list => {
+        renderPlayers(list);
+
+        const me =
+            list.find(
+                p => p.id === myId
+            );
+
+        if (me) {
+            isDrawer = !!me.drawer;
+
+            toolsState();
+        }
+    }
+);
+
+socket.on(
+    "roundStart",
+    data => {
+        roundText.textContent =
+            data.round;
+
+        wordText.textContent =
+            `✏️ ${escapeHtml(data.drawerName)} đang chuẩn bị...`;
+
+        categoryText.textContent = "";
+
+        clearLocal();
+    }
+);
+
+socket.on(
+    "chooseWord",
+    data => {
+        isDrawer = true;
+
+        toolsState();
+
+        showChoose(data.options);
+
+        chooseTime.textContent =
+            data.seconds;
+    }
+);
+
+socket.on(
+    "chooseTimer",
+    data => {
+        chooseTime.textContent =
+            data.seconds;
+    }
+);
+
+socket.on(
+    "startDrawing",
+    data => {
+        isDrawer =
+            data.drawerId === myId;
+
+        toolsState();
+
+        wordText.textContent =
+            isDrawer
+                ? "🎨 Từ cần vẽ: " + data.category
+                : `✏️ ${data.drawerName} đang vẽ`;
+
+        categoryText.textContent =
+            data.category;
+
+        timer.textContent =
+            data.seconds;
+
+        waitMessage.classList.add(
+            "hidden"
+        );
+
+        clearLocal();
+    }
+);
+
+socket.on(
+    "drawingStarted",
+    data => {
+        isDrawer = true;
+
+        wordText.textContent =
+            "🎨 " + data.word;
+
+        categoryText.textContent =
+            data.category;
+
+        toolsState();
+    }
+);
+
+socket.on(
+    "guessOptions",
+    data => {
+        if (isDrawer) return;
+
+        showGuessOptions(
+            data.options
+        );
+    }
+);
+
+socket.on(
+    "timerUpdate",
+    data => {
+        timer.textContent =
+            data.seconds;
+    }
+);
+
+socket.on(
+    "waitingForPlayers",
+    data => {
+        isDrawer = false;
+
+        toolsState();
+
+        guessArea.innerHTML = "";
+
+        waitMessage.textContent =
+            `Đang chờ người chơi... ` +
+            `(${data.count}/${data.minimum})`;
+
+        waitMessage.classList.remove(
+            "hidden"
+        );
+
+        wordText.textContent =
+            "Đang chờ người chơi...";
+
+        categoryText.textContent = "";
+
+        timer.textContent = "--";
+    }
+);
+
+socket.on(
+    "drawLine",
+    data => {
+        drawLocal(
+            data.x0,
+            data.y0,
+            data.x1,
+            data.y1,
+            data.color,
+            data.size,
+            data.erase
+        );
+
+        strokes.push(data);
+    }
+);
+
+socket.on(
+    "clearCanvas",
+    () => {
+        strokes = [];
+        redraw();
+    }
+);
+
+socket.on(
+    "removeAllImages",
+    () => {
+        images = [];
+        redraw();
+    }
+);
+
+socket.on(
+    "importImage",
+    data => {
+        images.push(data);
+        drawImageObject(data);
+    }
+);
+
+socket.on(
+    "removeImage",
+    id => {
+        images =
+            images.filter(
+                image => image.id !== id
+            );
+
+        redraw();
+    }
+);
+
+socket.on(
+    "correctGuess",
+    data => {
+        showToast(
+            `🎉 ${data.playerName} đoán đúng! +${data.points}`,
+            "success"
+        );
+    }
+);
+
+socket.on(
+    "wrongGuess",
+    () => {
+        showToast(
+            "❌ Sai rồi!",
+            "error"
+        );
+    }
+);
+
+socket.on(
+    "revealAnswer",
+    data => {
+        wordText.textContent =
+            "Đáp án: " + data.word;
+
+        categoryText.textContent =
+            data.category;
+    }
+);
+
+socket.on(
+    "showScoreboard",
+    data => {
+        showScoreboard(
+            data.players,
+            data.word
+        );
+    }
+);
+
+socket.on(
+    "gameStarting",
+    () => {
+        showToast(
+            "🎮 Game bắt đầu!"
+        );
+    }
+);
+
+socket.on(
+    "toast",
+    data => {
+        showToast(
+            data.message,
+            data.type
+        );
+    }
+);
+
+function toolsState() {
+    const tools =
+        document.getElementById("tools");
+
+    tools.style.opacity =
+        isDrawer ? "1" : ".45";
+
+    tools.style.pointerEvents =
+        isDrawer ? "auto" : "none";
+}
+
+/* Khởi tạo */
+setTimeout(() => {
+    resizeCanvas();
+}, 100);
+
+</script>
+
+</body>
+</html>
